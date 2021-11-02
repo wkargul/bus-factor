@@ -1,0 +1,8 @@
+debug/
+target/
+/.idea
+/bus-factor.iml
+Cargo.lock
+**/*.rs.bk
+*.pdb
+
