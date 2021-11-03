@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -30,17 +31,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     while switch {
         for repository in &page {
             if processed_repos < project_count {
-                println!("{}", repository.name);
-                println!("{}", repository.contributors_url);
                 match github_api_client
                     .get::<Vec<Contributor>, &reqwest::Url, ()>(&repository.contributors_url, None::<&()>)
                     .await
                 {
                     Ok(contributors) => {
-                        for contributor in contributors {
-                            println!("contributor {:?} contributed {:?}", contributor.login, contributor.contributions);
+                        let mut contributors_map: HashMap<String, f64> = HashMap::new();
+                        for contributor in contributors.iter() {
+                            contributors_map.insert(contributor.login.clone(), contributor.contributions);
+                            if contributors_map.len() >= 25 {
+                                break;
+                            }
+                            // println!("contributor {:?} contributed {:?}", contributor.login, contributor.contributions);
                         }
-                        println!();
+                        let divider = contributors_map.values().sum::<f64>();
+                        let result: Vec<_> = contributors_map
+                            .iter()
+                            .filter_map(|(x, y)| { if y / divider >= 0.75 { Some((x, y / divider)) } else { None } })
+                            .collect();
+                        if !result.is_empty() {
+                            println!("project: {} user: {} percentage: {:.2}", repository.name, result.first().unwrap().0, result.first().unwrap().1)
+                        }
+
                     }
                     Err(error) => println!("{:#?}", error)
                 }
@@ -67,8 +79,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 }
 
 
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Contributor {
     login: String,
-    contributions: u16,
+    contributions: f64,
 }
