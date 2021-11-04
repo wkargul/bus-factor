@@ -24,10 +24,26 @@ factor is equal to 1 (it's likely for the project to become unmaintained if the 
 contributor suddenly stops working on it).
 
 ## Example
+bus-factor --language rust --project-count 50
+
+project: 996.ICU user: 996icu percentage: 0.80
+project: ripgrep user: BurntSushi percentage: 0.89
+project: swc user: kdy1 percentage: 0.79
+project: Rocket user: SergioBenitez percentage: 0.86
+project: exa user: ogham percentage: 0.85
+project: rustdesk user: rustdesk percentage: 0.85
+project: sonic user: valeriansaliou percentage: 0.94
+project: iced user: hecrj percentage: 0.88
+project: delta user: dandavison percentage: 0.88
+project: navi user: denisidoro percentage: 0.79
+project: hyper user: seanmonstar percentage: 0.79
+project: book user: carols10cents percentage: 0.76
+project: xsv user: BurntSushi percentage: 0.92
+project: py-spy user: benfred percentage: 0.81
 
 ## Using
 
 `docker build --build-arg REPO_NAME="bus-factor" -t bus-factor:latest .`
 
-`docker run bus-factor:latest`
+`docker run --env-file Docker-test.env bus-factor:latest bus-factor --language <language> --project-count <project_count>`
 

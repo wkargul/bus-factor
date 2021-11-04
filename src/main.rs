@@ -1,19 +1,18 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use structopt::StructOpt;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    //try to parse cli arguments into App struct.
+    let args = App::from_args();
     //define github_api_client
     let github_api_client = octocrab::Octocrab::builder()
         //authenticate client with PAT
         .personal_token(std::env::var("GITHUB_TOKEN").unwrap())
         .build()?;
-    let language = std::env::var("LANGUAGE").unwrap();
     //assemble query to GitHub
-    let query = &*("language:".to_owned() + language.as_str());
-    let project_count = std::env::var("PROJECT_COUNT").unwrap().parse::<u32>().unwrap();
-    //number of records per page fetched from GitHub per request
-    let per_page = 50_u8;
+    let query = &*("language:".to_owned() + args.language.as_str());
 
     //fetch page of records
     let mut page = github_api_client
@@ -21,7 +20,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .repositories(query)
         .sort("stars")
         .order("desc")
-        .per_page(per_page)
         .send()
         .await?;
     //number of processed repositories
@@ -30,7 +28,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     while switch {
         for repository in &page {
-            if processed_repos < project_count {
+            if processed_repos < args.project_count {
                 match github_api_client
                     .get::<Vec<Contributor>, &reqwest::Url, ()>(&repository.contributors_url, None::<&()>)
                     .await
@@ -83,4 +81,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 pub struct Contributor {
     login: String,
     contributions: f64,
+}
+
+#[derive(StructOpt, Debug)]
+struct App {
+    #[structopt(short, long)]
+    language: String,
+    #[structopt(short, long)]
+    project_count: u32,
 }
