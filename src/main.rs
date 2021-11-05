@@ -26,34 +26,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     let mut switch: bool = true;
     while switch {
-        for repository in &page {
+        for project in &page {
             if processed_repos < args.project_count {
                 match github_api_client
-                    .get::<Vec<Contributor>, &reqwest::Url, ()>(&repository.contributors_url, None::<&()>)
+                    .get::<Vec<Contributor>, &reqwest::Url, ()>(&project.contributors_url, None::<&()>)
                     .await
                 {
                     Ok(contributors) => {
-                        let contr_map: HashMap<String, f64> = contributors
-                            .iter()
-                            .take(25)
-                            .map(|x| (x.login.clone(), x.contributions))
-                            .collect();
-
-                        let divider = contr_map.values().sum::<f64>();
-
-                        let result: Vec<_> = contr_map
-                            .iter()
-                            .filter_map(|(x, y)| { if y / divider >= 0.75 { Some((x, y / divider)) } else { None } })
-                            .collect();
-
-                        if !result.is_empty() {
-                            println!(
-                                "project: {:<20} user: {:<20} percentage: {:<.2}",
-                                repository.name,
-                                result.first().unwrap().0,
-                                result.first().unwrap().1
-                            )
-                        }
+                        match analyze_contributors(contributors) {
+                            None => {}
+                            Some(key_contributor) => {
+                                print_stdout(project.name.clone(), key_contributor.user, key_contributor.percentage);
+                            }
+                        };
                     }
                     Err(error) => println!("{:#?}", error)
                 }
@@ -79,11 +64,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     Ok(())
 }
 
+fn analyze_contributors(contributors: Vec<Contributor>) -> Option<KeyContributor> {
+    //collect contributors in HashMap -> <key: login, value: contributions>
+    let contr_map: HashMap<String, f64> = contributors
+        .iter()
+        .take(25)
+        .map(|x| (x.login.clone(), x.contributions))
+        .collect();
+
+    //sum total number of contributions for further operation
+    let total_contr = contr_map.values().sum::<f64>();
+
+    //create an option of KeyContributor meeting given conditions
+    contr_map
+        .iter()
+        .filter_map(|(x, y)| { if y / total_contr >= 0.75 { Some(KeyContributor{ user: x.clone(), percentage: y / total_contr }) } else { None } })
+        .last()
+}
+
+fn print_stdout(project_name: String, user: String, percentage: f64) {
+    println!("project: {:<20} user: {:<20} percentage: {:<.2}", project_name, user, percentage)
+}
+
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Contributor {
+struct Contributor {
     login: String,
     contributions: f64,
+}
+
+#[derive(Debug)]
+struct KeyContributor {
+    user: String,
+    percentage: f64,
 }
 
 #[derive(StructOpt, Debug)]
