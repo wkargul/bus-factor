@@ -1,6 +1,7 @@
-use serde::{Deserialize, Serialize};
+mod models;
+
 use std::collections::HashMap;
-use structopt::StructOpt;
+use models::{App, Contributor, KeyContributor};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -30,13 +31,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             if processed_repos < args.project_count {
                 match github_api_client
                     .get::<Vec<Contributor>, &reqwest::Url, ()>(&project.contributors_url, None::<&()>)
-                    .await
-                {
+                    .await {
                     Ok(contributors) => {
                         match analyze_contributors(contributors) {
                             None => {}
                             Some(key_contributor) => {
-                                print_stdout(project.name.clone(), key_contributor.user, key_contributor.percentage);
+                                print_stdout(&project.name, key_contributor.user, key_contributor.percentage);
                             }
                         };
                     }
@@ -52,8 +52,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         if switch {
             page = match github_api_client
                 .get_page::<octocrab::models::Repository>(&page.next)
-                .await?
-            {
+                .await? {
                 Some(next_page) => next_page,
                 None => break,
             }
@@ -69,40 +68,27 @@ fn analyze_contributors(contributors: Vec<Contributor>) -> Option<KeyContributor
     let contr_map: HashMap<String, f64> = contributors
         .iter()
         .take(25)
-        .map(|x| (x.login.clone(), x.contributions))
+        .map(|contr| (contr.login.clone(), contr.contributions))
         .collect();
 
     //sum total number of contributions for further operation
-    let total_contr = contr_map.values().sum::<f64>();
+    let total_project_contributions = contr_map.values().sum::<f64>();
 
     //create an option of KeyContributor meeting given conditions
     contr_map
         .iter()
-        .filter_map(|(x, y)| { if y / total_contr >= 0.75 { Some(KeyContributor{ user: x.clone(), percentage: y / total_contr }) } else { None } })
+        .filter_map(|(login, contributions)| bus_factor_check(login, contributions, total_project_contributions))
         .last()
 }
 
-fn print_stdout(project_name: String, user: String, percentage: f64) {
+fn bus_factor_check(login: &str, contributions: &f64, total_project_contributions: f64) -> Option<KeyContributor> {
+    let percentage = contributions / total_project_contributions;
+    match percentage >= 0.75 {
+        true => Some(KeyContributor::new(login.to_string(), percentage)),
+        false => None
+    }
+}
+
+fn print_stdout(project_name: &str, user: String, percentage: f64) {
     println!("project: {:<20} user: {:<20} percentage: {:<.2}", project_name, user, percentage)
-}
-
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct Contributor {
-    login: String,
-    contributions: f64,
-}
-
-#[derive(Debug)]
-struct KeyContributor {
-    user: String,
-    percentage: f64,
-}
-
-#[derive(StructOpt, Debug)]
-struct App {
-    #[structopt(short, long)]
-    language: String,
-    #[structopt(short, long)]
-    project_count: u32,
 }
