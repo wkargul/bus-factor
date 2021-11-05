@@ -13,7 +13,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .build()?;
     //assemble query to GitHub
     let query = &*("language:".to_owned() + args.language.as_str());
-
     //fetch page of records
     let mut page = github_api_client
         .search()
@@ -24,8 +23,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .await?;
     //number of processed repositories
     let mut processed_repos = 0u32;
-    let mut switch: bool = true;
 
+    let mut switch: bool = true;
     while switch {
         for repository in &page {
             if processed_repos < args.project_count {
@@ -34,23 +33,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     .await
                 {
                     Ok(contributors) => {
-                        let mut contributors_map: HashMap<String, f64> = HashMap::new();
-                        for contributor in contributors.iter() {
-                            contributors_map.insert(contributor.login.clone(), contributor.contributions);
-                            if contributors_map.len() >= 25 {
-                                break;
-                            }
-                            // println!("contributor {:?} contributed {:?}", contributor.login, contributor.contributions);
-                        }
-                        let divider = contributors_map.values().sum::<f64>();
-                        let result: Vec<_> = contributors_map
+                        let contr_map: HashMap<String, f64> = contributors
+                            .iter()
+                            .take(25)
+                            .map(|x| (x.login.clone(), x.contributions))
+                            .collect();
+
+                        let divider = contr_map.values().sum::<f64>();
+
+                        let result: Vec<_> = contr_map
                             .iter()
                             .filter_map(|(x, y)| { if y / divider >= 0.75 { Some((x, y / divider)) } else { None } })
                             .collect();
-                        if !result.is_empty() {
-                            println!("project: {} user: {} percentage: {:.2}", repository.name, result.first().unwrap().0, result.first().unwrap().1)
-                        }
 
+                        if !result.is_empty() {
+                            println!(
+                                "project: {:<20} user: {:<20} percentage: {:<.2}",
+                                repository.name,
+                                result.first().unwrap().0,
+                                result.first().unwrap().1
+                            )
+                        }
                     }
                     Err(error) => println!("{:#?}", error)
                 }
@@ -71,7 +74,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             }
         }
     }
-    println!("{}", processed_repos);
+    println!("\n{} projects have been analyzed", processed_repos);
 
     Ok(())
 }
