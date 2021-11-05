@@ -13,12 +13,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .personal_token(std::env::var("GITHUB_TOKEN").unwrap())
         .build()?;
     //assemble query to GitHub
-    let query = &*("language:".to_owned() + args.language.as_str());
+    let query = format!("language:{}", args.language);
     //fetch page of records
     //by default setup in GitHubAPI it returns 30 records per page
     let mut page = github_api_client
         .search()
-        .repositories(query)
+        .repositories(query.as_str())
         .sort("stars")
         .order("desc")
         .send()
@@ -59,7 +59,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             break;
         }
     }
-    println!("\n{} projects have been analyzed", processed_projects);
+    println!("\n{} projects have been analysed", processed_projects);
 
     Ok(())
 }
