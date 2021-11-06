@@ -31,5 +31,5 @@ pub struct App {
 }
 
 impl App {
-    pub fn from_args() ->App { <App as StructOpt>::from_args() }
+    pub fn from_args() -> App { <App as StructOpt>::from_args() }
 }

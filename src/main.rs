@@ -1,67 +1,62 @@
 mod models;
 
 use std::collections::HashMap;
+use octocrab::Octocrab;
+use reqwest::Url;
 use models::{App, Contributor, KeyContributor};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     //try to parse cli arguments (<language> and <project_count>) into App struct.
     let args = App::from_args();
+    //PAT for authentication
+    let token = std::env::var("GITHUB_TOKEN").expect("GITHUB_TOKEN env variable is required");
     //define github_api_client
     let github_api_client = octocrab::Octocrab::builder()
-        //authenticate client with PAT
-        .personal_token(std::env::var("GITHUB_TOKEN").unwrap())
+        .personal_token(token)
         .build()?;
     //assemble query to GitHub
     let query = format!("language:{}", args.language);
     //fetch page of records
     //by default setup in GitHubAPI it returns 30 records per page
-    let mut page = github_api_client
+    let mut current_page = github_api_client
         .search()
         .repositories(query.as_str())
         .sort("stars")
         .order("desc")
         .send()
         .await?;
+
+    //take current set of repositories
+    let mut projects = current_page.take_items();
     //number of processed repositories
     let mut processed_projects = 0u32;
-    //switch for the process
-    let mut continue_analysis: bool = true;
 
-    while continue_analysis {
-        //loop through records in returned page of records
-        for project in &page {
-            //check if total number of processed projects is not greater than <project_count>
+    'read_records: while let Ok(Some(mut new_page)) = github_api_client.get_page(&current_page.next).await {
+        projects.extend(new_page.take_items());
+
+        for project in projects.drain(..) {
             if processed_projects < args.project_count {
                 //get contributors as Vec<Contributor>
-                match github_api_client
-                    .get::<Vec<Contributor>, &reqwest::Url, ()>(&project.contributors_url, None::<&()>)
-                    .await {
-                    Ok(contributors) => { process(contributors, &project.name) }
-                    Err(error) => println!("{:#?}", error)
-                }
+                fetch_contributors(&github_api_client, &project.contributors_url, &project.name).await;
                 processed_projects += 1;
             } else {
-                continue_analysis = false;
-                break;
+                break 'read_records;
             }
         }
-
-        if continue_analysis {
-            //get next page of records
-            page = match github_api_client
-                .get_page::<octocrab::models::Repository>(&page.next)
-                .await? {
-                Some(next_page) => next_page,
-                None => break,
-            }
-        } else {
-            break;
-        }
+        current_page = new_page;
     }
     println!("\n{} projects have been analysed", processed_projects);
-
     Ok(())
+}
+
+async fn fetch_contributors(client: &Octocrab, route: &Url, project_name: &str) {
+    match client
+        .get::<Vec<Contributor>, &reqwest::Url, ()>(route, None::<&()>)
+        .await {
+        Ok(contributors) => { process(contributors, project_name) }
+        Err(error) => println!("{:#?}", error)
+    }
 }
 
 fn process(contributors: Vec<Contributor>, project_name: &str) {
