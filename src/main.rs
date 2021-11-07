@@ -36,10 +36,9 @@ async fn main() -> Result<(), AppError> {
         projects.extend(new_page.take_items());
 
         for project in projects.drain(..) {
-            if processed_projects < args.project_count {
-                utils::fetch_results(&github_api_client, &project.contributors_url, &project.name).await;
-                processed_projects += 1;
-            } else {
+            utils::fetch_results(&github_api_client, &project.contributors_url, &project.name).await;
+            processed_projects += 1;
+            if processed_projects == args.project_count {
                 break 'read_records;
             }
         }
