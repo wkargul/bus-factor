@@ -3,11 +3,12 @@ use structopt::StructOpt;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Contributor {
-    pub login: String,
+    #[serde(rename(deserialize = "login"))]
+    pub user: String,
     pub contributions: f64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct KeyContributor {
     pub user: String,
     pub percentage: f64,

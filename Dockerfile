@@ -5,6 +5,7 @@ COPY Cargo.toml Cargo.toml
 COPY src src
 RUN rustup component add clippy
 RUN cargo clippy --all -- -D warnings
+RUN cargo test --no-fail-fast --release
 RUN cargo build --release
 
 FROM centos as runner
