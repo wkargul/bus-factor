@@ -46,17 +46,17 @@ project: py-spy               user: benfred              percentage: 0.81
 
 Clone the repository:
 
-`git clone https://github.com/wkargul/bus-factor.git`
+```git clone https://github.com/wkargul/bus-factor.git```
 
 Build the repository using Docker:
 
-`docker build --build-arg REPO_NAME="bus-factor" -t bus-factor:latest .`
+```docker build --build-arg REPO_NAME="bus-factor" -t bus-factor:latest .```
 
 Run the application either with your env file (consists of GITHUB_TOKEN=<your GITHUB_TOKEN>):
 
-`docker run --env-file Docker-test.env bus-factor:latest bus-factor --language <language> --project-count <project_count>`
+```docker run --env-file Docker-test.env bus-factor:latest bus-factor --language <language> --project-count <project_count>```
 
 or just with env var as a command line parameter:
 
-`docker run -e GITHUB_TOKEN=<your GITHUB_TOKEN> bus-factor:latest bus-factor --language <language> --project-count <project_count>`
+```docker run -e GITHUB_TOKEN=<your GITHUB_TOKEN> bus-factor:latest bus-factor --language <language> --project-count <project_count>```
 
