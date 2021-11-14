@@ -5,6 +5,9 @@ mod utils;
 use models::App;
 use crate::error::AppError;
 
+use async_std::prelude::*;
+use async_std::stream;
+
 #[tokio::main]
 async fn main() -> Result<(), AppError> {
     //try to parse cli arguments (<language> and <project_count>) into App struct.
@@ -35,13 +38,17 @@ async fn main() -> Result<(), AppError> {
     'read_records: while let Ok(Some(mut new_page)) = github_api_client.get_page(&current_page.next).await {
         projects.extend(new_page.take_items());
 
-        for project in projects.drain(..) {
+        //converts an iterator into stream
+        let mut s = stream::from_iter(projects.drain(..));
+
+        while let Some(project) = s.next().await {
             utils::fetch_results(&github_api_client, &project.contributors_url, &project.name).await;
             processed_projects += 1;
             if processed_projects == args.project_count {
                 break 'read_records;
             }
         }
+
         current_page = new_page;
     }
     println!("\n{} projects have been analysed", processed_projects);
